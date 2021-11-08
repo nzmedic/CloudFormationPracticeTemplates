@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: 2010-09-09
+# This CloudFormation template deploys a basic VPC / Network as a precurser to Amazon RDS practice
+Resources:
+  BasicParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: AmazonRDSPracticeCidrBlock
+      Type: String
+      Value: 10.0.0.0/16
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref AmazonRDSPracticeCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default  #vs dedicated
+      Tags:
+      - Key: name
+        Value:  !Join ['', [!Ref "AWS::StackName", "-RDS" ]]
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:    
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.0.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 0, !GetAZs ] # get first AZ from list
+      Tags:
+      - Key: name
+        Value: !Sub ${AWS::StackName}-PublicSubnet
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [ 1, !GetAZs ] # get second AZ from list
+      Tags:
+      - Key: name
+        Value: !Sub ${AWS::StackName}-PrivateSubnet
