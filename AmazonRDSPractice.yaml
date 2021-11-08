@@ -11,7 +11,7 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: !Ref AmazonRDSPracticeCidrBlock
-      EnableDnsSupport: true
+      EnableDnsSupport: true  #prep for dns and gateway work
       EnableDnsHostnames: true
       InstanceTenancy: default  #vs dedicated
       Tags:
@@ -22,7 +22,7 @@ Resources:
     Properties:    
       VpcId: !Ref VPC
       CidrBlock: 10.0.0.0/24
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: true #as the public subnet
       AvailabilityZone: !Select [ 0, !GetAZs ] # get first AZ from list
       Tags:
       - Key: name
@@ -32,8 +32,8 @@ Resources:
     Properties: 
       VpcId: !Ref VPC
       CidrBlock: 10.0.1.0/24
-      MapPublicIpOnLaunch: false
-      AvailabilityZone: !Select [ 1, !GetAZs ] # get second AZ from list
+      MapPublicIpOnLaunch: false #private subnet
+      AvailabilityZone: !Select [ 1, !GetAZs ] #get second AZ from list
       Tags:
       - Key: name
         Value: !Sub ${AWS::StackName}-PrivateSubnet
