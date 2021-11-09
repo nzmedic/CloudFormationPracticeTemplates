@@ -16,7 +16,7 @@ Resources:
       EnableDnsHostnames: true
       InstanceTenancy: default  #vs dedicated
       Tags:
-      - Key: name
+      - Key: Name
         Value:  !Join ['', [!Ref "AWS::StackName", "-RDS" ]]
   InternetGateway: #Each Gateway can be assigned to one and only one VPC and Amazon manages making the Gateway available across availability zones.
     Type: AWS::EC2::InternetGateway
@@ -33,7 +33,7 @@ Resources:
       MapPublicIpOnLaunch: true #as the public subnet
       AvailabilityZone: !Select [ 0, !GetAZs ] # get first AZ from list
       Tags:
-      - Key: name
+      - Key: Name
         Value: !Sub ${AWS::StackName}-PublicSubnet
   PublicSubnetAZ2:
     Type: AWS::EC2::Subnet
@@ -43,7 +43,7 @@ Resources:
       MapPublicIpOnLaunch: true
       AvailabilityZone: !Select [ 1, !GetAZs ]
       Tags:
-      - Key: name
+      - Key: Name
         Value: !Sub ${AWS::StackName}-PublicSubnet
   PrivateSubnetAZ1: #RDS DBSubnetGroups require redundant subnets
     Type: AWS::EC2::Subnet
@@ -53,7 +53,7 @@ Resources:
       MapPublicIpOnLaunch: false #private subnet
       AvailabilityZone: !Select [ 1, !GetAZs ]
       Tags:
-      - Key: name
+      - Key: Name
         Value: !Sub ${AWS::StackName}-PrivateSubnet
   PrivateSubnetAZ2:
     Type: AWS::EC2::Subnet
@@ -63,21 +63,21 @@ Resources:
       MapPublicIpOnLaunch: false #private subnet
       AvailabilityZone: !Select [ 0, !GetAZs ]
       Tags:
-      - Key: name
+      - Key: Name
         Value: !Sub ${AWS::StackName}-PrivateSubnet        
-  PublicSubnetGroup:
+  PublicDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties: 
       DBSubnetGroupDescription: Subnet Group for Public Subnets
-      DBSubnetGroupName: !Sub ${AWS::StackName}-PublicSubnetGroup
+      DBSubnetGroupName: !Sub ${AWS::StackName}-PublicDBSubnetGroup
       SubnetIds: 
       - !Ref PublicSubnetAZ1
       - !Ref PublicSubnetAZ2
-  PrivateSubnetGroup:
+  PrivateDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties: 
       DBSubnetGroupDescription: Subnet Group for Private Subnets
-      DBSubnetGroupName: !Sub ${AWS::StackName}-PrivateSubnetGroup
+      DBSubnetGroupName: !Sub ${AWS::StackName}-PrivateDBSubnetGroup
       SubnetIds: 
       - !Ref PrivateSubnetAZ1
       - !Ref PrivateSubnetAZ2
@@ -115,4 +115,25 @@ Resources:
         CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
       - IpProtocol: -1 #any protocol
-        CidrIp: 0.0.0.0/0    
+        CidrIp: 0.0.0.0/0
+  myDB:  
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      AutoMinorVersionUpgrade: true #for dev
+      BackupRetentionPeriod: 1
+      DBInstanceClass: db.t3.micro #free tier RDS
+      DBInstanceIdentifier: !Sub ${AWS::StackName}-Dev
+      DBName: !Sub ${AWS::StackName}PGDB  #start with a letter and alphanumeric only
+      DBSubnetGroupName: !Ref PublicDBSubnetGroup
+      Engine: postgres
+      EngineVersion: 13.4 #for supported engine+version combinations see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html#Concepts.DBInstanceClass.Support
+      MasterUsername: sa # make toes curl 
+      MasterUserPassword: password1 # safe as houses.... 
+      PubliclyAccessible: true
+      StorageType: standard # standard (magnetic) | gp2 | io1
+    DependsOn: VPCGatewayAttachment # required as the DB is part of a public VPC defined in the same template. Presume this so the RDS instance is created after the VPC
+      
+
+
+
