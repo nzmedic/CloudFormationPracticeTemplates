@@ -17,23 +17,101 @@ Resources:
       Tags:
       - Key: name
         Value:  !Join ['', [!Ref "AWS::StackName", "-RDS" ]]
-  PublicSubnet:
+  InternetGateway: #Each Gateway can be assigned to one and only one VPC and Amazon manages making the Gateway available across availability zones.
+    Type: AWS::EC2::InternetGateway
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicSubnetAZ1: #RDS DBSubnetGroups require redundant subnets
     Type: AWS::EC2::Subnet
     Properties:    
       VpcId: !Ref VPC
-      CidrBlock: 10.0.0.0/24
+      CidrBlock: 10.0.0.0/24 #even for public, odd for private "private is at odds with public"
       MapPublicIpOnLaunch: true #as the public subnet
       AvailabilityZone: !Select [ 0, !GetAZs ] # get first AZ from list
       Tags:
       - Key: name
         Value: !Sub ${AWS::StackName}-PublicSubnet
-  PrivateSubnet:
+  PublicSubnetAZ2:
+    Type: AWS::EC2::Subnet
+    Properties:    
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 1, !GetAZs ]
+      Tags:
+      - Key: name
+        Value: !Sub ${AWS::StackName}-PublicSubnet
+  PrivateSubnetAZ1: #RDS DBSubnetGroups require redundant subnets
     Type: AWS::EC2::Subnet
     Properties: 
       VpcId: !Ref VPC
       CidrBlock: 10.0.1.0/24
       MapPublicIpOnLaunch: false #private subnet
-      AvailabilityZone: !Select [ 1, !GetAZs ] #get second AZ from list
+      AvailabilityZone: !Select [ 1, !GetAZs ]
       Tags:
       - Key: name
         Value: !Sub ${AWS::StackName}-PrivateSubnet
+  PrivateSubnetAZ2:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.3.0/24
+      MapPublicIpOnLaunch: false #private subnet
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      Tags:
+      - Key: name
+        Value: !Sub ${AWS::StackName}-PrivateSubnet        
+  PublicSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: Subnet Group for Public Subnets
+      DBSubnetGroupName: !Sub ${AWS::StackName}-PublicSubnetGroup
+      SubnetIds: 
+      - !Ref PublicSubnetAZ1
+      - !Ref PublicSubnetAZ2
+  PrivateSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: Subnet Group for Private Subnets
+      DBSubnetGroupName: !Sub ${AWS::StackName}-PrivateSubnetGroup
+      SubnetIds: 
+      - !Ref PrivateSubnetAZ1
+      - !Ref PrivateSubnetAZ2
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment #According to the AWS documentation, any route entries that specify a gateway must specify a dependency on the gateway attachment resource
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+  SubnetAZ1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetAZ1
+  SubnetAZ2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetAZ2
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "Internet Group"
+      GroupDescription: "SSH traffic in, all traffic out."
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: -1 #any protocol
+        CidrIp: 0.0.0.0/0    
