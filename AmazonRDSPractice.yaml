@@ -89,7 +89,7 @@ Resources:
     Type: AWS::EC2::Route
     DependsOn: VPCGatewayAttachment #According to the AWS documentation, any route entries that specify a gateway must specify a dependency on the gateway attachment resource
     Properties:
-      DestinationCidrBlock: 0.0.0.0/0
+      DestinationCidrBlock: 0.0.0.0/0 #TODO: route currently closed, adjust once desired route is known
       GatewayId: !Ref InternetGateway
       RouteTableId: !Ref PublicRouteTable
   SubnetAZ1RouteTableAssociation:
@@ -116,12 +116,21 @@ Resources:
       SecurityGroupEgress:
       - IpProtocol: -1 #any protocol
         CidrIp: 0.0.0.0/0
+  PGDBRDSParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties: 
+      Description: Enforces SSL
+      Family: postgres13
+      Parameters: 
+        rds.force_ssl : 1
+      Tags: 
+        - Tag
   myDB:  
     Type: AWS::RDS::DBInstance
     Properties:
       AllocatedStorage: 20
-      AutoMinorVersionUpgrade: true #for dev
-      BackupRetentionPeriod: 1
+      AutoMinorVersionUpgrade: true #for dev, actively push any upgrade to prod
+      BackupRetentionPeriod: 1 #for dev
       DBInstanceClass: db.t3.micro #free tier RDS
       DBInstanceIdentifier: !Sub ${AWS::StackName}-Dev
       DBName: !Sub ${AWS::StackName}PGDB  #start with a letter and alphanumeric only
